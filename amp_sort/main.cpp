@@ -1,6 +1,7 @@
 #include <amp.h>
 #include <iostream>
 #include <chrono>
+#include <algorithm>
 #include <conio.h>
 #include "radix_sort.h"
 
@@ -43,8 +44,15 @@ int main()
 		{
 			if(data[i] != i) { success = 0; break;}
 		}
+		std::cout<<"Test for correctness complete! "<<"Test was a "<<(success? "success!" : "failure!")<<"\n";
+		std::random_shuffle(data, data+num);
+		std::cout<<"Beginning std::sort for comparison.\n";
+		start = std::chrono::high_resolution_clock::now();
+		std::sort(data, data+num);
+		end = std::chrono::high_resolution_clock::now();
+		std::cout<<"CPU sort complete in "<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<
+			" microseconds! \n\n\n";
 
-		std::cout<<"Test for correctness complete! "<<"Test was a "<<(success? "success!" : "failure!")<<"\n\n\n";
 		delete[] data;
 
 	}
