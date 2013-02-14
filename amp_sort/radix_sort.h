@@ -5,6 +5,6 @@ typedef unsigned int uint;
 namespace pal
 {
 	void radix_sort(uint* start,  uint num);
-	void radix_sort(concurrency::array_view<uint> arr);
+	void radix_sort(concurrency::array<uint>& arr);
 }
 

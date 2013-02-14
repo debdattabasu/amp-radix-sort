@@ -78,13 +78,13 @@ uint tile_prefix_sum(uint x, concurrency::tiled_index<256> tidx) restrict(amp)
 }
 
 
-void calc_interm_sums(uint bitoffset, concurrency::array_view<uint> & interm_arr, 
+void calc_interm_sums(uint bitoffset, concurrency::array<uint> & interm_arr, 
 					  concurrency::array<uint> & interm_sums, concurrency::array<uint> & interm_prefix_sums, uint num_tiles)
 {
 	using namespace concurrency;
 	auto ext = extent<1>(num_tiles*256).tile<256>();
 
-	parallel_for_each(ext , [=, &interm_sums](tiled_index<256> tidx) restrict(amp)
+	parallel_for_each(ext , [=, &interm_sums, &interm_arr](tiled_index<256> tidx) restrict(amp)
 	{
 		uint inbound = ((uint)tidx.global[0]<interm_arr.get_extent().size());
 		uint num = (inbound)? get_bits(interm_arr[tidx.global[0]], 2, bitoffset): get_bits(0xffffffff, 2, bitoffset);
@@ -121,13 +121,13 @@ void calc_interm_sums(uint bitoffset, concurrency::array_view<uint> & interm_arr
 	});
 }
 
-void sort_step(uint bitoffset, concurrency::array_view<uint> & src, concurrency::array_view<uint> & dest,  
+void sort_step(uint bitoffset, concurrency::array<uint> & src, concurrency::array<uint> & dest,  
 			   concurrency::array<uint> & interm_prefix_sums, uint num_tiles)
 {
 	using namespace concurrency;
 	auto ext = extent<1>(num_tiles*256).tile<256>();
 
-	parallel_for_each(ext , [=, &interm_prefix_sums](tiled_index<256> tidx) restrict(amp)
+	parallel_for_each(ext , [=, &interm_prefix_sums, &src, &dest](tiled_index<256> tidx) restrict(amp)
 	{
 		uint inbounds = ((uint)tidx.global[0]<src.get_extent().size());
 		uint element = (inbounds)? src[tidx.global[0]] : 0xffffffff;
@@ -143,7 +143,7 @@ void sort_step(uint bitoffset, concurrency::array_view<uint> & src, concurrency:
 
 namespace pal
 {
-	void radix_sort(concurrency::array_view<uint> arr)
+	void radix_sort(concurrency::array<uint>& arr)
 	{
 		using namespace concurrency;
 		uint size = arr.get_extent().size();
@@ -154,12 +154,10 @@ namespace pal
 		array<uint> interm_sums(num_tiles*4);
 		array<uint> interm_prefix_sums(num_tiles*4);
 
-		array_view<uint> interm_av(interm_arr);
-
 		for(uint i = 0; i < 16; i ++)
 		{
-			array_view<uint>& src  = (i%2==0)? arr: interm_av;
-			array_view<uint>& dest = (i%2==0)? interm_av: arr;
+			array<uint>& src  = (i%2==0)? arr: interm_arr;
+			array<uint>& dest = (i%2==0)? interm_arr: arr;
 
 			uint bitoffset = i*2;
 			calc_interm_sums(bitoffset, src, interm_sums, interm_prefix_sums, num_tiles);
@@ -169,6 +167,6 @@ namespace pal
 
 	void radix_sort(uint* arr,  uint size)
 	{
-		radix_sort(concurrency::array_view<uint>(size, arr));
+		radix_sort(concurrency::array<uint>(size, arr));
 	}
 }
