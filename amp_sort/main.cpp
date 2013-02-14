@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <conio.h>
 #include "radix_sort.h"
+#include <ppl.h>
 
 
 
@@ -28,13 +29,18 @@ int main()
 		}
 		std::random_shuffle(data, data+num);
 		array_view<uint> av(num, data);
-		av.synchronize();
-
-		std::cout<<"Allocating "<< num <<" random unsigned integers complete! Start GPU sort."<< std::endl; 
+		std::cout<<"Allocating "<< num <<" random unsigned integers complete! Begin GPU data transfer."<< std::endl; 
 
 		auto start = std::chrono::high_resolution_clock::now();
-		pal::radix_sort(av);
+		av.synchronize();
 		auto end = std::chrono::high_resolution_clock::now();
+
+		std::cout<<"GPU data transfer complete in "<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<
+			" microseconds! Begin GPU sort." <<std::endl;
+
+		start = std::chrono::high_resolution_clock::now();
+		pal::radix_sort(av);
+		end = std::chrono::high_resolution_clock::now();
 		std::cout<<"GPU sort complete in "<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<
 			" microseconds! Begin test for correctness." <<std::endl;
 
@@ -50,8 +56,17 @@ int main()
 		start = std::chrono::high_resolution_clock::now();
 		std::sort(data, data+num);
 		end = std::chrono::high_resolution_clock::now();
-		std::cout<<"CPU sort complete in "<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<
+		std::cout<<"std::sort complete in "<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<
+			" microseconds! \n";
+
+		std::cout<<"Beginning concurrency::parallel_radixsort for comparison.\n";
+		start = std::chrono::high_resolution_clock::now();
+		concurrency::parallel_radixsort(data, data+num);
+		end = std::chrono::high_resolution_clock::now();
+		std::cout<<"concurrency::parallel_radixsort sort complete in "<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<
 			" microseconds! \n\n\n";
+
+
 
 		delete[] data;
 
