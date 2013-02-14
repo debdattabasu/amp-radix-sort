@@ -1,5 +1,4 @@
 #include <amp.h>
-#include <iostream>
 #include <chrono>
 #include <algorithm>
 #include <conio.h>
@@ -11,7 +10,7 @@ int main()
 {
 	using namespace concurrency;
 	accelerator default_device;
-    printf("Using device : %s\n\n", default_device.get_description());
+    wprintf(L"Using device : %s\n\n", default_device.get_description());
     if (default_device == accelerator(accelerator::direct3d_ref))
         printf("WARNING!! Running on very slow emulator! Only use this accelerator for debugging.\n\n");
 
