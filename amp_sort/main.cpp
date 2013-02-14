@@ -4,61 +4,79 @@
 #include <algorithm>
 #include <conio.h>
 #include "radix_sort.h"
-
+#include <ppl.h>
 
 
 int main()
 {
 	using namespace concurrency;
 	accelerator default_device;
-    std::wcout << "Using device : " << default_device.get_description() << std::endl<<std::endl;
+    printf("Using device : %s\n\n", default_device.get_description());
     if (default_device == accelerator(accelerator::direct3d_ref))
-        std::wcout << "WARNING!! Running on very slow emulator! Only use this accelerator for debugging." << std::endl<<std::endl;
+        printf("WARNING!! Running on very slow emulator! Only use this accelerator for debugging.\n\n");
 
 	for(uint i = 0; i < 10; i ++)
 	{
 		uint num = (1<<(i+13));
-		std::cout<<"Testing for "<<num<<" elements: \n"<<std::endl;
-		std::cout<<"Allocating "<< num <<" random unsigned integers."<< std::endl; 
+		printf("Testing for %u elements: \n", num);
 
-		uint *data = new uint[num];
+		std::vector<uint> data(num);
+
 		for(uint i = 0; i < num; i ++)
 		{
 			data[i] = i;
 		}
-		std::random_shuffle(data, data+num);
-		array_view<uint> av(num, data);
-		av.synchronize();
+		std::random_shuffle(data.begin(), data.end());
+		std::vector<uint> dataclone(data.begin(), data.end());
 
-		std::cout<<"Allocating "<< num <<" random unsigned integers complete! Start GPU sort."<< std::endl; 
 
-		auto start = std::chrono::high_resolution_clock::now();
+		auto start_fill = std::chrono::high_resolution_clock::now();
+		array<uint> av(num, data.begin(), data.end());
+		auto end_fill = std::chrono::high_resolution_clock::now();
+
+		printf("Allocating %u random unsigned integers complete! Start GPU sort.\n", num);
+
+		auto start_comp = std::chrono::high_resolution_clock::now();
 		pal::radix_sort(av);
-		auto end = std::chrono::high_resolution_clock::now();
-		std::cout<<"GPU sort complete in "<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<
-			" microseconds! Begin test for correctness." <<std::endl;
+		av.accelerator_view.wait(); //Wait for the computation to finish
+		auto end_comp = std::chrono::high_resolution_clock::now();
 
-		av.synchronize();
+		auto start_collect = std::chrono::high_resolution_clock::now();
+		data = av; //synchronise
+		auto end_collect = std::chrono::high_resolution_clock::now();
+
+		printf("GPU sort completed in %llu microseconds.\nData transfer: %llu microseconds, computation: %llu microseconds\n",
+			std::chrono::duration_cast<std::chrono::microseconds> (end_collect-start_fill).count(), 
+			std::chrono::duration_cast<std::chrono::microseconds> (end_fill-start_fill+end_collect-start_collect).count(),
+			std::chrono::duration_cast<std::chrono::microseconds> (end_comp-start_comp).count());
+
+		printf("Testing for correctness. Results are.. ");
+
 		uint success = 1;
 		for(uint i = 0; i < num; i ++)
 		{
 			if(data[i] != i) { success = 0; break;}
 		}
-		std::cout<<"Test for correctness complete! "<<"Test was a "<<(success? "success!" : "failure!")<<"\n";
-		std::random_shuffle(data, data+num);
-		std::cout<<"Beginning std::sort for comparison.\n";
-		start = std::chrono::high_resolution_clock::now();
-		std::sort(data, data+num);
-		end = std::chrono::high_resolution_clock::now();
-		std::cout<<"CPU sort complete in "<<std::chrono::duration_cast<std::chrono::microseconds>(end-start).count()<<
-			" microseconds! \n\n\n";
+		printf("%s\n", (success? "correct!" : "incorrect!"));
 
-		delete[] data;
+		data = dataclone;
+		printf("Beginning CPU sorts for comparison.\n");
+		start_comp = std::chrono::high_resolution_clock::now();
+		std::sort(data.data(), data.data()+num);
+		end_comp = std::chrono::high_resolution_clock::now();
+		printf("CPU std::sort completed in %llu microseconds. \n", std::chrono::duration_cast<std::chrono::microseconds>(end_comp-start_comp).count());
+
+		data = dataclone;
+		start_comp = std::chrono::high_resolution_clock::now();
+		//Note: the concurrency::parallel sorts are horribly slow if you give them vectors (i.e. parallel_radixsort(data.begin(), data.end())
+		concurrency::parallel_radixsort(data.data(), data.data()+num);
+		end_comp = std::chrono::high_resolution_clock::now();
+		printf("CPU concurrency::parallel_sort completed in %llu microseconds. \n\n\n", std::chrono::duration_cast<std::chrono::microseconds>(end_comp-start_comp).count());
 
 	}
 
 	
-	std::cout<<"Press any key to exit! \n";
+	printf("Press any key to exit! \n");
 	_getch();
 	
 
